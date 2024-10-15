@@ -1,0 +1,19 @@
+I have a 3d cube object in my hand. I'm going to give you a list of transformations you 
+should apply to this cube. Please calculate the final modelview matrix and return it in float32array format by using js. 
+The transformations:
+	translation:
+		0.3 units in x-axis
+		-0.25 units in y-axis
+	scaling:
+		0.5 by x-axis
+		0.5 by y-axis
+	rotation:
+		30 degrees on x-axis
+		45 degrees on y-axis
+		60 degrees on z-axis
+
+Return format should be in js:
+	 const transformationMatrix = new Float32Array([
+        
+    	]);
+Please calculate the result by yourself and return the Float32AArray
