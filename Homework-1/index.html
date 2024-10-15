@@ -1,0 +1,148 @@
+<head>
+    <title>CS405 - Week3 WebGL Intro</title>
+    <!-- References or links to HTML, JavaScript, and WebGL standards -->
+    <meta name="HTML" content="https://www.w3.org/TR/html/">
+    <meta name="JavaScript" content="https://www.ecma-international.org/ecma-262/">
+    <meta name="WebGL" content="https://www.khronos.org/webgl/">
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/3.4.2/gl-matrix-min.min.js"></script>
+
+    <script type="text/javascript" id="includedscript" src="cube.js"></script>
+    <script type="text/javascript" id="includedscript" src="utils.js"></script>
+</head>
+
+<body>
+
+    <canvas id="webgl-canvas" class="webglcanvas" style="border: 5px black solid;" width="800" height="800"></canvas>
+    <script>
+        const canvas = document.getElementById("webgl-canvas")
+        const gl = canvas.getContext("webgl");
+        // Initialize the GL context
+        if (!gl) {
+            alert("WebGL is not supported. Please use a compatible browser.");
+        } else {
+            console.log("browser supports WebGL")
+            gl.enable(gl.DEPTH_TEST)
+        }
+
+        // Create a vertex buffer object (VBO) and bind it.
+        const vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+
+        const vertexData = cubeVertices;
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexShaderSource);
+        gl.compileShader(vertexShader);
+        if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+            console.error('ERROR compiling vertex shader!', gl.getShaderInfoLog(vertexShader));
+        }
+
+        // Create a fragment shader.
+        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragmentShader, fragmentShaderSource);
+        gl.compileShader(fragmentShader)
+        if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+            console.error('ERROR compiling fragment shader!', gl.getShaderInfoLog(fragmentShader));
+        }
+
+        // Create a shader program and link it.
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error('ERROR linking program!', gl.getProgramInfoLog(program));
+        }
+        gl.useProgram(program);
+
+
+        const positionAttribute = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionAttribute);
+        gl.vertexAttribPointer(positionAttribute, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
+
+        const normalAttribute = gl.getAttribLocation(program, "normal");
+        gl.enableVertexAttribArray(normalAttribute);
+        gl.vertexAttribPointer(normalAttribute, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT); console.log(positionAttribute, normalAttribute)
+
+
+        // Retrieve the uniform locations
+        const modelViewMatrixLocation = gl.getUniformLocation(program, "modelViewMatrix");
+        const projectionMatrixLocation = gl.getUniformLocation(program, "projectionMatrix");
+        const normalMatrixLocation = gl.getUniformLocation(program, "normalMatrix");
+        const lightDirectionLocation = gl.getUniformLocation(program, 'lightDirection');
+        const ambientColorLocation = gl.getUniformLocation(program, 'ambientColor');
+        const diffuseColorLocation = gl.getUniformLocation(program, 'diffuseColor');
+        const specularColorLocation = gl.getUniformLocation(program, 'specularColor');
+        const shininessLocation = gl.getUniformLocation(program, 'shininess');
+
+
+        // Light properties
+        const lightDirection = [0.0, 0.0, 1.0]; // Directional light coming from the top-right-front
+        const ambientColor = [0.2, 0.2, 0.2]; // Soft white light
+        const diffuseColor = [0.1, 0.6, 0.7]; // Bright white light
+        const specularColor = [1, 1, 1]; // Bright white light for the specular highlights
+        const shininess = 1; // Shininess coefficient for specular highlights
+
+        // Set the light uniforms
+        gl.uniform3fv(lightDirectionLocation, lightDirection);
+        gl.uniform3fv(ambientColorLocation, ambientColor);
+        gl.uniform3fv(diffuseColorLocation, diffuseColor);
+        gl.uniform3fv(specularColorLocation, specularColor);
+        gl.uniform1f(shininessLocation, shininess);
+
+        // Set up the projection matrix (for simplicity, using a simple orthographic projection here)
+        const projectionMatrix = createIdentityMatrix(); // Replace this with actual projection matrix setup
+
+        //Set the viewport.
+        gl.viewport(0, 0, canvas.width, canvas.height);
+
+        //Set the beackground color.
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+        // Render loop
+        const startTime = Date.now();
+        let modelViewMatrix = createIdentityMatrix();
+        function render() {
+            // Clear the canvas
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            /**
+            *@WARNING
+            DO NOT CHANGE ANYTHING ABOVE THIS LINE
+            */
+
+            /** @task1 */
+            //modelViewMatrix = getChatGPTModelViewMatrix();
+
+            /** @task2 */
+            //modelViewMatrix = getModelViewMatrix();
+
+            /** @task3 */
+            modelViewMatrix = getPeriodicMovement(startTime);
+
+            /**
+             * @WARNING
+             * DO NOT CHANGE ANYTHING BELOW THIS LINE
+            */
+
+            // Pass the model-view and projection matrices to the shader
+            gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
+            gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
+
+            let normalMatrix = glMatrix.mat4.create();
+            normalMatrix = glMatrix.mat4.transpose(normalMatrix, modelViewMatrix);
+            normalMatrix = glMatrix.mat4.invert(normalMatrix, normalMatrix);
+            gl.uniformMatrix4fv(normalMatrixLocation, false, normalMatrix);
+
+            // Draw the cube
+            gl.drawArrays(gl.TRIANGLES, 0, vertexData.length / 6);
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render); // Start the render loop
+
+    </script>
+</body>
