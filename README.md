@@ -1,2 +1,2 @@
 # Computer-Graphics-CS-405-
-HomeWorks from CS-405 course
+Home Works from CS-405 course
