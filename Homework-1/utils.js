@@ -161,33 +161,33 @@ function getChatGPTModelViewMatrix() {
  * stated in transformation-prompt.txt
  */
 function getModelViewMatrix() {
-    // Step 1: Create the scaling matrix (0.5 on x and y axes, 1 on z-axis)
+    // Step 1: scaling matrix (0.5 on x and y axes, 1 on z-axis)
     const scalingMatrix = createScaleMatrix(0.5, 0.5, 1);
 
-    // Step 2: Create rotation matrices (angles in radians)
+    // Step 2: rotation matrices 
     const rotationMatrixX = createRotationMatrix_X(Math.PI / 6);  // 30 degrees
     const rotationMatrixY = createRotationMatrix_Y(Math.PI / 4);  // 45 degrees
     const rotationMatrixZ = createRotationMatrix_Z(Math.PI / 3);  // 60 degrees
 
-    // Step 3: Create the translation matrix
+    // Step 3: translation matrix
     const translationMatrix = createTranslationMatrix(0.3, -0.25, 0);
 
-    // Step 4: Multiply matrices in the correct order
+    // Step 4: multiply matrices in the correct order
     // Transformation order: Scaling -> RotationX -> RotationY -> RotationZ -> Translation
-    // Due to matrix multiplication order (column-major), we reverse the multiplication order
+    // Due to matrix multiplication order (column-major), I will reverse the multiplication order
 
-    // Start with the identity matrix
+    // identity matrix
     let modelViewMatrix = createIdentityMatrix();
 
-    // Apply scaling
+    // scaling
     modelViewMatrix = multiplyMatrices(scalingMatrix, modelViewMatrix);
 
-    // Apply rotations
+    // rotations
     modelViewMatrix = multiplyMatrices(rotationMatrixX, modelViewMatrix);
     modelViewMatrix = multiplyMatrices(rotationMatrixY, modelViewMatrix);
     modelViewMatrix = multiplyMatrices(rotationMatrixZ, modelViewMatrix);
 
-    // Apply translation
+    // translation
     modelViewMatrix = multiplyMatrices(translationMatrix, modelViewMatrix);
 
     return modelViewMatrix;
@@ -206,13 +206,13 @@ function getModelViewMatrix() {
  * The next 5 seconds, the cube should return to its initial position.
  */
 function getPeriodicMovement(startTime) {
-    // Get the current time in seconds
+    // current time in seconds
     const currentTime = (Date.now() - startTime) / 1000;
 
-    // Calculate the time within the 10-second cycle
+    // time within the 10-second cycle
     const timeInCycle = currentTime % 10;
 
-    // Calculate the time parameter t (0 to 1 and back to 0 over 10 seconds)
+    // time parameter t (0 to 1 and back to 0 over 10 seconds)
     let t;
     if (timeInCycle < 5) {
         // First 5 seconds: t goes from 0 to 1
@@ -266,15 +266,15 @@ function getPeriodicMovement(startTime) {
     // Multiply matrices in the correct order
     let modelViewMatrix = createIdentityMatrix();
 
-    // Apply scaling
+    // scaling
     modelViewMatrix = multiplyMatrices(scalingMatrix, modelViewMatrix);
 
-    // Apply rotations
+    // rotations
     modelViewMatrix = multiplyMatrices(rotationMatrixX, modelViewMatrix);
     modelViewMatrix = multiplyMatrices(rotationMatrixY, modelViewMatrix);
     modelViewMatrix = multiplyMatrices(rotationMatrixZ, modelViewMatrix);
 
-    // Apply translation
+    // translation
     modelViewMatrix = multiplyMatrices(translationMatrix, modelViewMatrix);
 
     return modelViewMatrix;
