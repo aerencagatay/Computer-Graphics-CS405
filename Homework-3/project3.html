@@ -1,0 +1,364 @@
+<doctype html>
+
+    <html>
+
+    <head>
+        <script type="text/javascript" src="src/obj.js"></script>
+        <script type="text/javascript" src="src/trs.js"></script>
+        <script type="text/javascript" src="src/meshDrawer.js"></script>
+        <script type="text/javascript" src="src/sceneNode.js"></script>
+        <script type="text/javascript" src="src/sphere.js"></script>
+        <script type="text/javascript" src="src/camera.js"></script>
+        <script type="text/javascript" src="src/perspective.js"></script>
+        <script type="text/javascript" src="src/utils.js"></script>
+        <script type="text/javascript">
+            // math utils
+            function getIdentityMatrix() {
+                return [
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    0, 0, 0, 1
+                ];
+
+            }
+
+            function add(a, b) {
+                return [
+                    a[0] + b[0],
+                    a[1] + b[1],
+                    a[2] + b[2]
+                ];
+            }
+
+            function subtract(a, b) {
+                return [
+                    a[0] - b[0],
+                    a[1] - b[1],
+                    a[2] - b[2]
+                ];
+            }
+
+            function MatrixMult(A, B) {
+                var C = [];
+                for (var i = 0; i < 4; ++i) {
+                    for (var j = 0; j < 4; ++j) {
+                        var v = 0;
+                        for (var k = 0; k < 4; ++k) {
+                            v += A[j + 4 * k] * B[k + 4 * i];
+                        }
+                        C.push(v);
+                    }
+                }
+                return C;
+            }
+
+            function dot(A, B) {
+                var v = 0;
+                for (var i = 0; i < A.length; ++i) {
+                    v += A[i] * B[i];
+                }
+                return v;
+            }
+
+            function cross(A, B) {
+                return [
+                    A[1] * B[2] - A[2] * B[1],
+                    A[2] * B[0] - A[0] * B[2],
+                    A[0] * B[1] - A[1] * B[0]
+                ];
+            }
+
+            function normalize(v) {
+                dst = new Float32Array(3);
+                var length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+                // make sure we don't divide by 0.
+                if (length > 0.00001) {
+                    dst[0] = v[0] / length;
+                    dst[1] = v[1] / length;
+                    dst[2] = v[2] / length;
+                }
+                return dst;
+            }
+
+            function isPowerOf2(value) {
+                return (value & (value - 1)) == 0;
+            }
+
+        </script>
+
+        <script type="text/javascript">
+
+
+            var gl;				// WebGL context
+            var canvas;			// HTML canvas
+            var prog;			// The shader program
+
+            // Called once to initialize
+            function InitWebGL() {
+                // Initialize the WebGL canvas
+                canvas = document.getElementById("canvas");
+                canvas.oncontextmenu = function () { return false; };
+                gl = canvas.getContext("webgl", { antialias: false, depth: true });	// Initialize the GL context
+                if (!gl) {
+                    alert("Unable to initialize WebGL. Your browser or machine may not support it.");
+                    return;
+                } else {
+                    console.log("WebGL initialized");
+                }
+
+                // Initialize settings
+                gl.clearColor(0, 0, 0, 0);
+                gl.enable(gl.DEPTH_TEST);
+
+            }
+
+            // This is a helper function for compiling the given vertex and fragment shader source code into a program.
+            function InitShaderProgram(vsSource, fsSource) {
+                const vs = CompileShader(gl.VERTEX_SHADER, vsSource);
+                const fs = CompileShader(gl.FRAGMENT_SHADER, fsSource);
+
+                const prog = gl.createProgram();
+                gl.attachShader(prog, vs);
+                gl.attachShader(prog, fs);
+                gl.linkProgram(prog);
+
+                if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+                    alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(prog));
+                    return null;
+                }
+                return prog;
+            }
+
+            // This is a helper function for compiling a shader, called by InitShaderProgram().
+            function CompileShader(type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    alert('An error occurred compiling shader:\n' + gl.getShaderInfoLog(shader));
+                    gl.deleteShader(shader);
+                    return null;
+                }
+                return shader;
+            }
+
+
+            function UpdateCanvasSize() {
+                canvas.style.width = "100%";
+                canvas.style.height = "100%";
+                const pixelRatio = window.devicePixelRatio || 1;
+                canvas.width = pixelRatio * canvas.clientWidth;
+                canvas.height = pixelRatio * canvas.clientHeight;
+                const width = (canvas.width / pixelRatio);
+                const height = (canvas.height / pixelRatio);
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+
+            function setTextureImg(meshDrawer, imgUrl) {
+                var img = new Image();
+                img.src = imgUrl;
+                img.crossOrigin = "anonymous";
+                img.onload = function () {
+                    meshDrawer.setTexture(img);
+                }
+            }
+
+        </script>
+
+        <script type="text/javascript">
+            function renderLoop() {
+                UpdateCanvasSize();
+                var timeOffset = (Date.now() / 1000) % 9;
+                var zRotation = timeOffset * 40 * Math.PI / 180;
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                gl.viewport(0, 0, canvas.width, canvas.height);
+
+                var modelMatrix = getIdentityMatrix();
+                var modelViewMatrix = MatrixMult(camera.getLookAt(), modelMatrix);
+                var mvp = MatrixMult(perspective.getPerspectiveMatrix(), modelViewMatrix);
+                var normalMatrix = getNormalMatrix(modelMatrix);
+                sunNode.trs.setRotation(0, 0, zRotation);
+                earthNode.trs.setRotation(0, 0, zRotation * 2);
+                marsNode.trs.setRotation(0, 0, zRotation * 1.5);  
+                /**
+                 *@task3 : add rotation to mars on z-axis.
+                    the rotation should be 1.5 * zRotation 
+                */
+
+                sunNode.draw(mvp, modelViewMatrix, normalMatrix, modelMatrix);
+                requestAnimationFrame(renderLoop);
+            }
+
+
+            window.onload = function () {
+                InitWebGL();
+                UpdateCanvasSize();
+
+                sphereMesh = new ObjMesh();
+                sphereMesh.parse(sphere);
+                sphereBuffers = sphereMesh.getVertexBuffers();
+
+                camera = new Camera([0, 0, -1], [0, 0, 1], [0, 1, 0]);
+                perspective = new Perspective(Math.PI / 2, canvas.width / canvas.height, 1, 500);
+                sunMeshDrawer = new MeshDrawer(true);
+                earthMeshDrawer = new MeshDrawer();
+                moonMeshDrawer = new MeshDrawer();
+                marsMeshDrawer = new MeshDrawer();
+
+                sunMeshDrawer.setMesh(sphereBuffers.positionBuffer, sphereBuffers.texCoordBuffer, sphereBuffers.normalBuffer);
+                setTextureImg(sunMeshDrawer, "https://i.imgur.com/gl8zBLI.jpg");
+                sunTrs = new TRS();
+                sunTrs.setTranslation(0, 0, 5);
+                sunTrs.setScale(0.8, 0.8, 0.8);
+                sunNode = new SceneNode(sunMeshDrawer, sunTrs);
+
+                earthMeshDrawer.setMesh(sphereBuffers.positionBuffer, sphereBuffers.texCoordBuffer, sphereBuffers.normalBuffer);
+                setTextureImg(earthMeshDrawer, "https://i.imgur.com/eCpD7bM.jpg");
+                earthTrs = new TRS();
+                earthTrs.setTranslation(3, 0, 0);
+                earthTrs.setScale(0.5, 0.5, 0.5);
+                earthNode = new SceneNode(earthMeshDrawer, earthTrs, sunNode);
+
+                moonMeshDrawer.setMesh(sphereBuffers.positionBuffer, sphereBuffers.texCoordBuffer, sphereBuffers.normalBuffer);
+                setTextureImg(moonMeshDrawer, "https://i.imgur.com/oLiU4fm.jpg");
+                moonTrs = new TRS();
+                moonTrs.setTranslation(2.0, 0, 0);
+                moonTrs.setScale(0.25, 0.25, 0.25);
+                moonNode = new SceneNode(moonMeshDrawer, moonTrs, earthNode);
+
+                marsMeshDrawer.setMesh(sphereBuffers.positionBuffer, sphereBuffers.texCoordBuffer, sphereBuffers.normalBuffer);
+                setTextureImg(marsMeshDrawer, "https://i.imgur.com/Mwsa16j.jpeg");
+                var marsTrs = new TRS();
+                marsTrs.setTranslation(-6, 0, 0);  
+                marsTrs.setScale(0.35, 0.35, 0.35);  
+                marsNode = new SceneNode(marsMeshDrawer, marsTrs, sunNode);
+
+                /**
+                 * @Task3 : Add Mars to the solar system
+                 * Mars should be a child of the sun.
+                 * Mars should use sphere as the mesh object.
+                 * Mars should be translated by -6 units on the X axis with respect to the sun 
+                 * Mars should be scaled to 0.35 for x,y and z coordinates
+                 * use the image on the link below as texture:
+                 * @link : https://i.imgur.com/Mwsa16j.jpeg
+                 * 
+                 */
+
+
+                
+                renderLoop();
+            };
+
+            window.onresize = function () {
+                UpdateCanvasSize();
+            };
+
+            ///////////////////////////////////////////////////////////////////////////////////
+        </script>
+
+        <style>
+            html {
+                color: white;
+                background-color: black;
+                font-family: Arial;
+                overflow: hidden;
+            }
+
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            input[type=checkbox],
+            label {
+                cursor: hand;
+            }
+
+            input[type=range] {
+                width: 100%;
+            }
+
+            canvas {
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
+
+            #canvas-div {
+                position: relative;
+            }
+
+            #controls-div {
+                vertical-align: top;
+                background-color: #333;
+                overflow: auto;
+            }
+
+            #controls {
+                padding: 1em;
+            }
+
+            .control {
+                padding: 0.2em;
+            }
+
+            @media (orientation: landscape) {
+                #canvas-div {
+                    display: inline-block;
+                    width: 80%;
+                    height: 100%;
+                }
+
+                #controls-div {
+                    display: inline-block;
+                    width: 20%;
+                    height: 100%;
+                }
+
+                .control-group {
+                    margin-top: 1em;
+                    overflow: hidden;
+                }
+
+                #texture-img {
+                    width: 100%;
+                    height: auto;
+                }
+            }
+
+            @media (orientation: portrait) {
+                #canvas-div {
+                    width: 100%;
+                    height: 80%;
+                }
+
+                #controls-div {
+                    width: 100%;
+                    height: 20%;
+                }
+
+                .control-group {
+                    display: inline-block;
+                    vertical-align: top;
+                    margin-left: 2em;
+                }
+
+                #texture-img {
+                    width: auto;
+                    height: calc(100% - 2em);
+                }
+            }
+        </style>
+
+    </head>
+    <div id="canvas-div"><canvas id="canvas"></canvas></div>
+
+    </body>
+
+    </html>
